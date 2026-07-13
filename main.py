@@ -5,7 +5,6 @@ from pathlib import Path
 import discord
 from discord.ext import commands
 
-# Ajoute le path pour importer les modules internes
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -19,13 +18,17 @@ class EmbedBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.guilds = True
+        intents.message_content = True
         super().__init__(command_prefix="!", intents=intents, application_id=config.APPLICATION_ID)
 
     async def setup_hook(self):
         await init_db()
         await self.load_extension("bot.cogs.embed_manager")
-        await self.tree.sync()
-        logger.info("Bot prêt.")
+        try:
+            await asyncio.wait_for(self.tree.sync(), timeout=15)
+            logger.info("✅ Sync terminé.")
+        except Exception as e:
+            logger.warning(f"Sync warning: {e}")
 
     async def on_ready(self):
         logger.info(f"✅ {self.user} connecté !")
