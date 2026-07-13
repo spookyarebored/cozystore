@@ -8,7 +8,8 @@ from bot.views.pagination import EmbedPaginator
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_ROLE_ID = 1525913251018178640
+PRICE_ROLE_ID = 1525913263550759032
+ALL_COMMANDE_ROLE_ID = 1525913251018178640
 TICKET_CHANNEL_ID = 1525913302352531456
 
 class EmbedManager(commands.Cog):
@@ -21,11 +22,14 @@ class EmbedManager(commands.Cog):
         return choices
 
     def has_allowed_role(self, interaction: discord.Interaction) -> bool:
-        return any(role.id == ALLOWED_ROLE_ID for role in interaction.user.roles)
+        return any(role.id == PRICE_ROLE_ID for role in interaction.user.roles)
+    
+    def has_allowed_owner_role(self, interaction: discord.Interaction) -> bool:
+        return any(role.id == ALL_COMMANDE_ROLE_ID for role in interaction.user.roles)
 
     @app_commands.command(name="groupe-create", description="Créer un groupe")
     async def groupe_create(self, interaction: discord.Interaction, name: str):
-        if not self.has_allowed_role(interaction):
+        if not self.has_allowed_owner_role(interaction):
             await interaction.response.send_message("❌ Accès refusé.", ephemeral=True)
             return
         try:
@@ -37,7 +41,7 @@ class EmbedManager(commands.Cog):
 
     @app_commands.command(name="groupe-list", description="Lister les groupes")
     async def groupe_list(self, interaction: discord.Interaction):
-        if not self.has_allowed_role(interaction):
+        if not self.has_allowed_owner_role(interaction):
             await interaction.response.send_message("❌ Accès refusé.", ephemeral=True)
             return
         try:
@@ -56,7 +60,7 @@ class EmbedManager(commands.Cog):
     @app_commands.command(name="embed-create", description="Créer un embed")
     @app_commands.autocomplete(group_name=group_autocomplete)
     async def embed_create(self, interaction: discord.Interaction, group_name: str, embed_name: str):
-        if not self.has_allowed_role(interaction):
+        if not self.has_allowed_owner_role(interaction):
             await interaction.response.send_message("❌ Accès refusé.", ephemeral=True)
             return
         try:
@@ -69,10 +73,10 @@ class EmbedManager(commands.Cog):
             logger.error(f"Erreur: {e}")
             await interaction.response.send_message("❌ Erreur.", ephemeral=True)
 
-    @app_commands.command(name="groupe-send", description="Envoyer le groupe (privé)")
+    @app_commands.command(name="price", description="Voir les prix du groupe selectionné")
     @app_commands.autocomplete(group_name=group_autocomplete)
-    async def groupe_send(self, interaction: discord.Interaction, group_name: str):
-        if not self.has_allowed_role(interaction):
+    async def price(self, interaction: discord.Interaction, group_name: str):
+        if not (self.has_allowed_role(interaction) or self.has_allowed_owner_role(interaction)):
             await interaction.response.send_message("❌ Accès refusé.", ephemeral=True)
             return
         try:
@@ -98,7 +102,7 @@ class EmbedCreationModal(ui.Modal, title="Créer un Embed"):
         self.embed_name = embed_name
 
     async def on_submit(self, interaction: discord.Interaction):
-        if not any(role.id == ALLOWED_ROLE_ID for role in interaction.user.roles):
+        if not any(role.id == ALL_COMMANDE_ROLE_ID for role in interaction.user.roles):
             await interaction.response.send_message("❌ Accès refusé.", ephemeral=True)
             return
         try:
