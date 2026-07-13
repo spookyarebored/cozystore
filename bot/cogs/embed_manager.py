@@ -3,14 +3,21 @@ import logging
 from discord import app_commands, ui
 from discord.ext import commands
 
+
 from bot.database.database import create_group, get_all_groups, add_embed_to_group, get_group_embeds
 from bot.views.pagination import EmbedPaginator
+from bot.views.ticket import TicketPanel
 
 logger = logging.getLogger(__name__)
 
 PRICE_ROLE_ID = 1525913263550759032
 ALL_COMMANDE_ROLE_ID = 1525913251018178640
 TICKET_CHANNEL_ID = 1525913302352531456
+TICKET_CATEGORY_ID =  1525913546804826203
+SUPPORT_ROLE_ID =  {
+    1525913251018178640,
+    1525913253182443564
+}
 
 class EmbedManager(commands.Cog):
     def __init__(self, bot):
@@ -89,6 +96,44 @@ class EmbedManager(commands.Cog):
         except Exception as e:
             logger.error(f"Erreur: {e}")
             await interaction.response.send_message("❌ Erreur.", ephemeral=True)
+    @app_commands.command(name="renameticket", description="Renommer le ticket actuel")
+    async def renameticket(self, interaction: discord.Interaction, new_name: str):
+        if not interaction.channel.category_id == TICKET_CATEGORY_ID:
+            await interaction.response.send_message("❌ Cette commande ne fonctionne que dans un ticket.", ephemeral=True)
+            return
+        await interaction.channel.edit(name=new_name)
+        await interaction.response.send_message(f"✅ Ticket renommé en `{new_name}`", ephemeral=True)
+
+    @app_commands.command(name="closeallticket", description="Fermer tous les tickets ouverts (Staff seulement)")
+    async def closeallticket(self, interaction: discord.Interaction):
+        if not any(role.id == SUPPORT_ROLE_ID for role in interaction.user.roles):
+            await interaction.response.send_message("❌ Accès refusé.", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        count = 0
+        for channel in interaction.guild.channels:
+            if channel.category_id == TICKET_CATEGORY_ID:
+                try:
+                    await channel.delete(reason=f"Closeall par {interaction.user}")
+                    count += 1
+                except:
+                    pass
+        await interaction.followup.send(f"✅ {count} tickets fermés.", ephemeral=True)
+        
+        @app_commands.command(name="setup-ticket", description="Créer le panneau de tickets")
+    async def setup_ticket(self, interaction: discord.Interaction):
+        if not self.has_allowed_owner_role(interaction):
+            await interaction.response.send_message("❌ Accès refusé.", ephemeral=True)
+            return
+        
+        embed = discord.Embed(
+            title="🎫 Support - Open a ticket",
+            description="Welcome to support!\n📩 Click the button below to open a ticket.\n⏱️ A staff member will respond quickly.\n⚠️ Please do not spam.",
+            color=0x5865F2
+        )
+        view = TicketPanel()
+        await interaction.response.send_message(embed=embed, view=view)
 
 class EmbedCreationModal(ui.Modal, title="Créer un Embed"):
     title_input = ui.TextInput(label="Titre", required=True)
@@ -118,4 +163,5 @@ class EmbedCreationModal(ui.Modal, title="Créer un Embed"):
 
 async def setup(bot):
     await bot.add_cog(EmbedManager(bot))
+    bot.add_view(TicketPanel())
     logger.info("✅ Bot complet chargé.")
