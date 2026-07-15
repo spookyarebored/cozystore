@@ -4,6 +4,9 @@ from pathlib import Path
 from typing import List
 
 from config import config
+import logging
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = config.DB_PATH
 
@@ -47,6 +50,20 @@ async def get_all_groups(guild_id: int) -> List[dict]:
         async with db.execute("SELECT id, name FROM EmbedGroups WHERE guild_id = ? ORDER BY created_at DESC", (guild_id,)) as cursor:
             rows = await cursor.fetchall()
             return [{"id": row[0], "name": row[1]} for row in rows]
+
+async def delete_group(guild_id: int, name: str) -> bool:
+    """Supprime un groupe et tous ses embeds associés."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "DELETE FROM EmbedGroups WHERE guild_id = ? AND name = ?", 
+            (guild_id, name)
+        ) as cursor:
+            deleted = cursor.rowcount > 0
+        await db.commit()
+        
+        if deleted:
+            logger.info(f"Groupe supprimé: {name} (guild {guild_id})")
+        return deleted
 
 async def add_embed_to_group(group_name: str, guild_id: int, embed_name: str, title: str, description: str, color: int):
     async with aiosqlite.connect(DB_PATH) as db:
