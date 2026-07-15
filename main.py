@@ -24,8 +24,9 @@ class EmbedBot(commands.Bot):
     async def setup_hook(self):
         await init_db()
         await self.load_extension("bot.cogs.embed_manager")
+        await self.load_extension("bot.cogs.ticket")
         try:
-            await asyncio.wait_for(self.tree.sync(), timeout=15)
+            await asyncio.wait_for(self.tree.sync(), timeout=25)
             logger.info("✅ Sync terminé.")
         except Exception as e:
             logger.warning(f"Sync warning: {e}")
