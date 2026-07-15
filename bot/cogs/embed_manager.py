@@ -3,6 +3,7 @@ import logging
 from discord import app_commands, ui
 from discord.ext import commands
 
+# Import complet
 from bot.database.database import create_group, get_all_groups, add_embed_to_group, get_group_embeds, delete_group
 from bot.views.pagination import EmbedPaginator
 
@@ -12,10 +13,7 @@ PRICE_ROLE_ID = 1525913263550759032
 ALL_COMMANDE_ROLE_ID = 1525913251018178640
 TICKET_CHANNEL_ID = 1525913302352531456
 TICKET_CATEGORY_ID = 1525913546804826203
-SUPPORT_ROLE_ID = {
-    1525913251018178640,
-    1525913253182443564
-}
+SUPPORT_ROLE_ID = {1525913251018178640, 1525913253182443564}
 
 class EmbedManager(commands.Cog):
     def __init__(self, bot):
@@ -32,7 +30,7 @@ class EmbedManager(commands.Cog):
     def has_allowed_owner_role(self, interaction: discord.Interaction) -> bool:
         return any(role.id == ALL_COMMANDE_ROLE_ID for role in interaction.user.roles)
 
-    # === COMMANDES GROUPES ===
+    # === GROUP COMMANDS ===
     @app_commands.command(name="groupe-create", description="Créer un groupe")
     async def groupe_create(self, interaction: discord.Interaction, name: str):
         if not self.has_allowed_owner_role(interaction):
@@ -42,48 +40,31 @@ class EmbedManager(commands.Cog):
             await create_group(interaction.guild_id, name)
             await interaction.response.send_message(f"✅ Groupe **{name}** créé !", ephemeral=True)
         except Exception as e:
-            logger.error(f"Erreur: {e}")
+            logger.error(f"Erreur create: {e}")
             await interaction.response.send_message("❌ Erreur.", ephemeral=True)
 
     @app_commands.command(name="groupe-delete", description="Supprimer un groupe et tous ses embeds")
     @app_commands.autocomplete(group_name=group_autocomplete)
     async def groupe_delete(self, interaction: discord.Interaction, group_name: str):
         if not self.has_allowed_owner_role(interaction):
-            await interaction.response.send_message("❌ Accès refusé. (Rôle ALL_COMMANDE requis)", ephemeral=True)
+            await interaction.response.send_message("❌ Accès refusé.", ephemeral=True)
             return
-        
         try:
-            # Vue de confirmation
-            class ConfirmView(discord.ui.View):
+            class ConfirmView(ui.View):
                 def __init__(self):
                     super().__init__(timeout=30)
-                
-                @discord.ui.button(label="Confirmer Suppression", style=discord.ButtonStyle.red)
-                async def confirm(self, confirm_inter: discord.Interaction, button: discord.ui.Button):
-                    success = await delete_group(confirm_inter.guild_id, group_name)
-                    if success:
-                        await confirm_inter.response.edit_message(
-                            content=f"✅ **Groupe `{group_name}`** et tous ses embeds ont été supprimés définitivement.",
-                            view=None
-                        )
-                    else:
-                        await confirm_inter.response.edit_message(
-                            content="❌ Groupe introuvable ou déjà supprimé.", view=None
-                        )
-                
+                @discord.ui.button(label="✅ Confirmer", style=discord.ButtonStyle.red)
+                async def confirm(self, i: discord.Interaction, btn):
+                    success = await delete_group(i.guild_id, group_name)
+                    await i.response.edit_message(content=f"✅ Groupe **{group_name}** supprimé !" if success else "❌ Groupe non trouvé.", view=None)
                 @discord.ui.button(label="Annuler", style=discord.ButtonStyle.gray)
-                async def cancel(self, cancel_inter: discord.Interaction, button: discord.ui.Button):
-                    await cancel_inter.response.edit_message(content="❌ Suppression annulée.", view=None)
-
-            await interaction.response.send_message(
-                f"⚠️ **Action destructive** : Suppression du groupe **{group_name}** et de tous ses embeds.\n"
-                "Confirmez-vous ?",
-                view=ConfirmView(),
-                ephemeral=True
-            )
+                async def cancel(self, i: discord.Interaction, btn):
+                    await i.response.edit_message(content="❌ Suppression annulée.", view=None)
+            
+            await interaction.response.send_message(f"⚠️ Supprimer définitivement **{group_name}** ?", view=ConfirmView(), ephemeral=True)
         except Exception as e:
-            logger.error(f"Erreur suppression groupe {group_name}: {e}")
-            await interaction.response.send_message("❌ Erreur lors de la suppression.", ephemeral=True)
+            logger.error(f"Erreur delete: {e}")
+            await interaction.response.send_message("❌ Erreur.", ephemeral=True)
 
     @app_commands.command(name="groupe-list", description="Lister les groupes")
     async def groupe_list(self, interaction: discord.Interaction):
@@ -100,7 +81,7 @@ class EmbedManager(commands.Cog):
                 embed.add_field(name=g['name'], value=f"ID: {g['id']}", inline=False)
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as e:
-            logger.error(f"Erreur: {e}")
+            logger.error(f"Erreur list: {e}")
             await interaction.response.send_message("❌ Erreur.", ephemeral=True)
 
     @app_commands.command(name="embed-create", description="Créer un embed")
@@ -116,7 +97,7 @@ class EmbedManager(commands.Cog):
                 return
             await interaction.response.send_modal(EmbedCreationModal(self, group_name, embed_name))
         except Exception as e:
-            logger.error(f"Erreur: {e}")
+            logger.error(f"Erreur embed-create: {e}")
             await interaction.response.send_message("❌ Erreur.", ephemeral=True)
 
     @app_commands.command(name="price", description="Voir les prix du groupe selectionné")
@@ -133,33 +114,19 @@ class EmbedManager(commands.Cog):
             view = EmbedPaginator(embeds)
             await interaction.response.send_message(embed=embeds[0], view=view, ephemeral=True)
         except Exception as e:
-            logger.error(f"Erreur: {e}")
+            logger.error(f"Erreur price: {e}")
             await interaction.response.send_message("❌ Erreur.", ephemeral=True)
 
-    # === MÉTHODE setup_ticket (inchangée) ===
     async def setup_ticket(self, interaction: discord.Interaction):
         try:
-            embed = discord.Embed(
-                title="🎟️ Support Client",
-                description="Cliquez sur le bouton ci-dessous pour ouvrir un ticket privé.",
-                color=0x5865F2
-            )
+            embed = discord.Embed(title="🎟️ Support Client", description="Cliquez sur le bouton ci-dessous pour ouvrir un ticket privé.", color=0x5865F2)
             embed.set_footer(text="CozyStore Support • Dev by astrieontheplace")
-
             view = discord.ui.View(timeout=None)
-            button = discord.ui.Button(
-                label="Ouvrir un Ticket",
-                style=discord.ButtonStyle.green,
-                custom_id="create_ticket_button"
-            )
+            button = discord.ui.Button(label="Ouvrir un Ticket", style=discord.ButtonStyle.green, custom_id="create_ticket_button")
             view.add_item(button)
-
             await interaction.response.send_message(embed=embed, view=view)
-            logger.info(f"Ticket panel déployé dans {interaction.channel.id}")
         except Exception as e:
             logger.error(f"Erreur setup_ticket: {e}")
-            if not interaction.response.is_done():
-                await interaction.response.send_message("❌ Impossible de déployer le panneau.", ephemeral=True)
 
 class EmbedCreationModal(ui.Modal, title="Créer un Embed"):
     title_input = ui.TextInput(label="Titre", required=True)
@@ -182,11 +149,11 @@ class EmbedCreationModal(ui.Modal, title="Créer un Embed"):
             await add_embed_to_group(self.group_name, interaction.guild_id, self.embed_name, self.title_input.value, full_description, color)
             embed = discord.Embed(title=self.title_input.value, description=full_description, color=color)
             embed.set_footer(text="Dev by astrieontheplace")
-            await interaction.response.send_message(embed=embed, content=f"✅ Embed sauvegardé !", ephemeral=True)
+            await interaction.response.send_message(embed=embed, content="✅ Embed sauvegardé !", ephemeral=True)
         except Exception as e:
-            logger.error(f"Erreur: {e}")
+            logger.error(f"Erreur modal: {e}")
             await interaction.response.send_message("❌ Erreur.", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(EmbedManager(bot))
-    logger.info("✅ Bot complet chargé.")
+    logger.info("✅ EmbedManager chargé avec toutes les commandes.")
